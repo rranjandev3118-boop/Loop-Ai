@@ -1,0 +1,488 @@
+// Target production schema.
+// Adopt through a planned migration; do not replace the active MVP schema
+// without the membership/data backfill described in the architecture review.
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+  REMOVED
+}
+
+enum Sentiment {
+  POS
+  NEU
+  NEG
+}
+
+enum FeedbackStatus {
+  NEW
+  REVIEWED
+  ACTIONED
+}
+
+enum ClassificationStatus {
+  PENDING
+  PROCESSING
+  CLASSIFIED
+  FAILED
+  MANUAL_REVIEW
+}
+
+enum FeedbackSourceType {
+  MANUAL
+  CSV
+  SIMULATED
+  API
+  WEBHOOK
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  DEAD_LETTER
+}
+
+enum ReportStatus {
+  QUEUED
+  GENERATING
+  COMPLETED
+  FAILED
+}
+
+enum ExportStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  REPORT_GENERATED
+  USER_INVITED
+  FEEDBACK_IMPORTED
+  AI_ANALYSIS_COMPLETE
+  SYSTEM
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  ROLE_CHANGE
+  THEME_CHANGE
+  REPORT_GENERATED
+  LOGIN
+  LOGOUT
+  EXPORT
+  INVITE
+}
+
+model Workspace {
+  id              String            @id @default(cuid())
+  name            String
+  slug            String            @unique
+  timezone        String            @default("UTC")
+  settings        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+  memberships     WorkspaceMember[]
+  invitations     Invitation[]
+  feedback        Feedback[]
+  themes          Theme[]
+  reports         Report[]
+  imports         ImportBatch[]
+  questionHistory QuestionHistory[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  jobs            AnalysisJob[]
+  outboxEvents    OutboxEvent[]
+
+  @@index([deletedAt])
+}
+
+model User {
+  id                   String            @id @default(cuid())
+  email                String            @unique
+  name                 String
+  passwordHash         String
+  emailVerified        DateTime?
+  emailVerifiedAt      DateTime?
+  lastLoginAt          DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  deletedAt            DateTime?
+  memberships          WorkspaceMember[]
+  invitationsSent      Invitation[]      @relation("InvitationInviter")
+  importsCreated       ImportBatch[]
+  reportsGenerated     Report[]          @relation("ReportAuthor")
+  reportExports        ReportExport[]
+  questions            QuestionHistory[]
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  idempotencyRecords   IdempotencyKey[]
+
+  @@index([deletedAt])
+}
+
+model WorkspaceMember {
+  id          String           @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role
+  status      MembershipStatus @default(ACTIVE)
+  joinedAt    DateTime?
+  disabledAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId, status])
+  @@index([workspaceId, role, status])
+}
+
+model Invitation {
+  id          String     @id @default(cuid())
+  workspaceId String
+  email       String
+  role        Role
+  tokenHash   String     @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  invitedById String
+  createdAt   DateTime   @default(now())
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User       @relation("InvitationInviter", fields: [invitedById], references: [id])
+
+  @@index([workspaceId, email])
+  @@index([expiresAt, acceptedAt, revokedAt])
+}
+
+model Feedback {
+  id                   String                 @id @default(cuid())
+  workspaceId           String
+  content              String
+  channel              String
+  customerLabel         String?
+  sourceType            FeedbackSourceType     @default(MANUAL)
+  sourceRef             String?
+  externalId            String?
+  sentiment             Sentiment?
+  sentimentScore        Float?
+  sentimentConfidence   Float?
+  featureArea           String?
+  rationale              String?
+  classificationStatus  ClassificationStatus  @default(PENDING)
+  status                FeedbackStatus        @default(NEW)
+  metadata              Json?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  themes                FeedbackTheme[]
+  embedding             Embedding?
+  analysisJobs          AnalysisJob[]
+  importRows            ImportRow[]
+
+  @@unique([workspaceId, sourceType, externalId])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, status, createdAt])
+  @@index([workspaceId, sentiment, createdAt])
+  @@index([workspaceId, channel, createdAt])
+  @@index([workspaceId, deletedAt])
+}
+
+model Theme {
+  id          String          @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String
+  description String?
+  color       String?
+  isSystem    Boolean         @default(false)
+  isArchived  Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedback    FeedbackTheme[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, isArchived, name])
+}
+
+model FeedbackTheme {
+  feedbackId String
+  themeId    String
+  confidence Float
+  source     String?
+  createdAt  DateTime @default(now())
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  theme      Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@id([feedbackId, themeId])
+  @@index([themeId, confidence])
+}
+
+model Embedding {
+  id          String   @id @default(cuid())
+  feedbackId  String   @unique
+  model       String
+  dimensions  Int
+  vector      Unsupported("vector")
+  contentHash String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  feedback    Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+}
+
+model AnalysisJob {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  feedbackId     String?
+  type           String
+  status         JobStatus     @default(QUEUED)
+  idempotencyKey String        @unique
+  attempts       Int           @default(0)
+  errorCode      String?
+  errorMessage   String?
+  provider       String?
+  model          String?
+  promptVersion  String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedback       Feedback?     @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, createdAt])
+  @@index([feedbackId, type, status])
+}
+
+model ImportBatch {
+  id             String       @id @default(cuid())
+  workspaceId    String
+  createdById    String
+  filename       String
+  contentHash    String?
+  status         ImportStatus @default(PENDING)
+  totalRows      Int          @default(0)
+  importedRows   Int          @default(0)
+  failedRows     Int          @default(0)
+  errorSummary   Json?
+  createdAt      DateTime     @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  workspace      Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy      User         @relation(fields: [createdById], references: [id])
+  rows           ImportRow[]
+
+  @@index([workspaceId, createdAt])
+  @@index([createdById, createdAt])
+}
+
+model ImportRow {
+  id          String     @id @default(cuid())
+  importId    String
+  rowNumber   Int
+  feedbackId  String?
+  rawData     Json
+  errorCode   String?
+  errorMessage String?
+  createdAt   DateTime   @default(now())
+  import      ImportBatch @relation(fields: [importId], references: [id], onDelete: Cascade)
+  feedback    Feedback?   @relation(fields: [feedbackId], references: [id], onDelete: SetNull)
+
+  @@unique([importId, rowNumber])
+  @@index([importId, errorCode])
+}
+
+model QuestionHistory {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  userId        String
+  question      String
+  answer        String
+  citations     Json
+  retrievalMeta Json?
+  model         String?
+  promptVersion String?
+  createdAt     DateTime  @default(now())
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model Report {
+  id            String       @id @default(cuid())
+  workspaceId   String
+  generatedById String
+  title         String
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        ReportStatus @default(QUEUED)
+  contentJson   Json?
+  sourceSnapshot Json?
+  model         String?
+  promptVersion String?
+  errorMessage  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  completedAt   DateTime?
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  generatedBy   User         @relation("ReportAuthor", fields: [generatedById], references: [id])
+  exports       ReportExport[]
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, status, periodStart, periodEnd])
+}
+
+model ReportExport {
+  id          String       @id @default(cuid())
+  reportId    String
+  requestedById String
+  status      ExportStatus @default(QUEUED)
+  storageKey  String?
+  contentType String       @default("application/pdf")
+  errorMessage String?
+  createdAt   DateTime     @default(now())
+  completedAt DateTime?
+  report      Report       @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  requestedBy User         @relation(fields: [requestedById], references: [id])
+
+  @@index([reportId, createdAt])
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  workspaceId String
+  actorId     String?
+  entityType  String
+  entityId    String
+  action      AuditAction
+  oldValue    Json?
+  newValue    Json?
+  requestId   String?
+  ipHash      String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  workspaceId String
+  userId      String
+  type        NotificationType
+  title       String
+  body        String
+  link        String?
+  eventKey    String           @unique
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model IdempotencyKey {
+  id             String   @id @default(cuid())
+  key            String
+  userId         String
+  workspaceId    String
+  requestHash    String
+  responseStatus Int?
+  responseBody   Json?
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, key])
+  @@index([expiresAt])
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  workspaceId String
+  eventType   String
+  aggregateId String
+  payload     Json
+  publishedAt DateTime?
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([publishedAt, createdAt])
+  @@index([workspaceId, aggregateId, createdAt])
+}
+
+enum EmailOtpPurpose {
+  SIGNUP
+  LOGIN
+}
+
+model EmailOtp {
+  id        String          @id @default(cuid())
+  email     String
+  otpHash   String
+  expiresAt DateTime
+  attempts  Int             @default(0)
+  createdAt DateTime        @default(now())
+  purpose   EmailOtpPurpose
+  @@index([email, purpose, createdAt])
+  @@index([expiresAt])
+}
+
+model EmailVerification {
+  id          String    @id @default(cuid())
+  email       String
+  codeHash    String
+  payload     Json
+  attempts    Int       @default(0)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  @@index([email, createdAt])
+  @@index([expiresAt])
+}

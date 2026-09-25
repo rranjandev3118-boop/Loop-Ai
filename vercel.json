@@ -1,0 +1,39 @@
+{
+  "crons": [
+    {
+      "path": "/api/jobs/process",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "build": {
+    "env": {
+      "NEXTAUTH_URL": {
+        "description": "The canonical URL of your Next.js app",
+        "value": "https://your-domain.com"
+      }
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
+}

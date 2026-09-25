@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum Sentiment {
+  POS
+  NEU
+  NEG
+}
+
+enum FeedbackStatus {
+  NEW
+  REVIEWED
+  ACTIONED
+}
+
+model Workspace {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String?    @unique
+  timezone  String     @default("UTC")
+  settings  Json?
+  createdAt DateTime   @default(now())
+  users     User[]
+  feedback  Feedback[]
+  themes    Theme[]
+  reports   Report[]
+  invitations Invitation[]
+  notifications Notification[]
+  questions QuestionHistory[]
+  auditLogs    AuditLog[]
+  memberships WorkspaceMember[]
+  jobs         Job[]
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DISABLED
+  REMOVED
+}
+
+model WorkspaceMember {
+  id          String           @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role
+  status      MembershipStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @default(now()) @updatedAt
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([workspaceId, userId])
+  @@index([userId, status])
+  @@index([workspaceId, role, status])
+}
+
+model Invitation {
+  id          String   @id @default(cuid())
+  email       String
+  role        Role
+  token       String   @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  workspaceId String
+  invitedById  String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy   User @relation(fields: [invitedById], references: [id])
+  @@index([workspaceId, email])
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  emailVerified DateTime?
+  role         Role
+  disabledAt   DateTime?
+  updatedAt    DateTime @default(now()) @updatedAt
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reports      Report[]
+  reportExports ReportExport[]
+  createdAt    DateTime  @default(now())
+  invitations  Invitation[]
+  notifications Notification[]
+  questions QuestionHistory[]
+  auditLogs    AuditLog[]
+  memberships WorkspaceMember[]
+  @@index([workspaceId])
+  @@index([workspaceId, disabledAt])
+}
+
+model Feedback {
+  id             String           @id @default(cuid())
+  content        String
+  channel        String
+  sourceRef      String?
+  customerLabel  String?
+  sentiment      Sentiment?
+  sentimentScore Float?
+  featureArea    String?
+  rationale      String?
+  classificationStatus String @default("CLASSIFIED")
+  sentimentConfidence Float?
+  deletedAt      DateTime?
+  updatedAt      DateTime @default(now()) @updatedAt
+  status         FeedbackStatus   @default(NEW)
+  createdAt      DateTime         @default(now())
+  workspaceId    String
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  themes         FeedbackTheme[]
+  embedding      Embedding?
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, status])
+  @@index([workspaceId, sentiment])
+  @@index([workspaceId, deletedAt, createdAt])
+}
+
+model Theme {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  color       String?
+  isArchived  Boolean @default(false)
+  deletedAt   DateTime?
+  updatedAt   DateTime @default(now()) @updatedAt
+  workspaceId String
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  feedback    FeedbackTheme[]
+  @@index([workspaceId])
+}
+
+model FeedbackTheme {
+  feedbackId String
+  themeId    String
+  confidence Float
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  theme      Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  @@id([feedbackId, themeId])
+}
+
+model Embedding {
+  id         String   @id @default(cuid())
+  feedbackId String   @unique
+  vector     Json
+  vectorPg   Unsupported("vector")?
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String
+  periodStart DateTime
+  periodEnd   DateTime
+  contentJson Json
+  status      String @default("COMPLETED")
+  deletedAt   DateTime?
+  updatedAt DateTime @default(now()) @updatedAt
+  createdAt   DateTime @default(now())
+  workspaceId String
+  generatedBy String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [generatedBy], references: [id])
+  exports     ReportExport[]
+  @@index([workspaceId, createdAt])
+}
+
+enum ExportStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum JobType {
+  CLASSIFICATION
+  REPORT_GENERATION
+  PDF_EXPORT
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model Job {
+  id             String     @id @default(cuid())
+  type           JobType
+  status         JobStatus  @default(QUEUED)
+  workspaceId    String
+  payload        Json
+  idempotencyKey String?    @unique
+  attempts       Int        @default(0)
+  maxAttempts    Int        @default(3)
+  availableAt    DateTime   @default(now())
+  lockedAt       DateTime?
+  lockedBy       String?
+  completedAt    DateTime?
+  failedAt       DateTime?
+  lastError      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  workspace      Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt, createdAt])
+  @@index([workspaceId, status, createdAt])
+  @@index([lockedAt])
+}
+
+model ReportExport {
+  id            String       @id @default(cuid())
+  reportId      String
+  requestedById String
+  status        ExportStatus @default(QUEUED)
+  contentType   String       @default("application/pdf")
+  errorMessage  String?
+  createdAt     DateTime     @default(now())
+  completedAt   DateTime?
+  report        Report        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  requestedBy   User          @relation(fields: [requestedById], references: [id])
+  @@index([reportId, createdAt])
+}
+
+model QuestionHistory {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  userId        String
+  question      String
+  answer        String
+  citations     Json
+  retrievalMeta Json?
+  createdAt     DateTime @default(now())
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  actorId     String?
+  entityType  String
+  entityId    String
+  action      String
+  oldValue    Json?
+  newValue    Json?
+  requestId   String?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, entityType, entityId])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  type        String
+  title       String
+  body        String
+  link        String?
+  eventKey    String   @unique
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, readAt, createdAt])
+}
+
+enum EmailOtpPurpose {
+  SIGNUP
+  LOGIN
+}
+
+model EmailOtp {
+  id        String          @id @default(cuid())
+  email     String
+  otpHash   String
+  expiresAt DateTime
+  attempts  Int             @default(0)
+  createdAt DateTime        @default(now())
+  purpose   EmailOtpPurpose
+  @@index([email, purpose, createdAt])
+  @@index([expiresAt])
+}

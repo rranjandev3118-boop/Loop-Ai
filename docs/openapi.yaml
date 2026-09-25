@@ -1,0 +1,266 @@
+openapi: 3.0.3
+info:
+  title: LOOP API
+  version: 1.0.0
+  description: Tenant-scoped customer feedback intelligence API.
+servers:
+  - url: /api
+security:
+  - sessionCookie: []
+tags:
+  - name: Auth
+  - name: Workspaces
+  - name: Feedback
+  - name: Themes
+  - name: Insights
+  - name: Reports
+  - name: Notifications
+  - name: Audit
+paths:
+  /auth/signup:
+    post:
+      security: []
+      tags: [Auth]
+      summary: Create a user and workspace or accept an invitation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SignupRequest' }
+      responses:
+        '201': { description: Account created }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /workspaces/current:
+    get:
+      tags: [Workspaces]
+      summary: Get the active workspace
+      responses:
+        '200': { description: Workspace returned }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /feedback:
+    get:
+      tags: [Feedback]
+      summary: Search tenant feedback
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/FeedbackStatus' } }
+        - { name: sentiment, in: query, schema: { $ref: '#/components/schemas/Sentiment' } }
+        - { name: channel, in: query, schema: { type: string } }
+        - { name: themeId, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: sort, in: query, schema: { type: string, enum: [createdAt, updatedAt] }, required: false }
+        - { name: direction, in: query, schema: { type: string, enum: [asc, desc] }, required: false }
+      responses:
+        '200': { description: Paginated feedback }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Feedback]
+      summary: Create feedback and enqueue analysis
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackCreate' }
+      responses:
+        '201': { description: Feedback accepted }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /feedback/{feedbackId}:
+    parameters:
+      - { $ref: '#/components/parameters/FeedbackId' }
+    get:
+      tags: [Feedback]
+      summary: Get tenant feedback
+      responses:
+        '200': { description: Feedback returned }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Feedback]
+      summary: Edit feedback or advance status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FeedbackPatch' }
+      responses:
+        '200': { description: Feedback updated }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Feedback]
+      summary: Soft-delete feedback
+      responses:
+        '204': { description: Deleted }
+  /themes:
+    get:
+      tags: [Themes]
+      summary: List workspace themes
+      responses:
+        '200': { description: Themes returned }
+    post:
+      tags: [Themes]
+      summary: Create a theme
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ThemeCreate' }
+      responses:
+        '201': { description: Theme created }
+  /questions:
+    get:
+      tags: [Insights]
+      summary: List Ask LOOP question history
+      responses:
+        '200': { description: Question history returned }
+    post:
+      tags: [Insights]
+      summary: Retrieve feedback and answer a grounded question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        '200': { description: Grounded answer with citations }
+        '422': { description: Insufficient evidence }
+  /reports:
+    get:
+      tags: [Reports]
+      summary: List reports
+      responses:
+        '200': { description: Reports returned }
+    post:
+      tags: [Reports]
+      summary: Queue a Voice-of-Customer report
+      parameters:
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, periodStart, periodEnd]
+              properties:
+                title: { type: string, maxLength: 120 }
+                periodStart: { type: string, format: date-time }
+                periodEnd: { type: string, format: date-time }
+      responses:
+        '202': { description: Report queued }
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List current user's notifications
+      responses:
+        '200': { description: Notifications returned }
+  /notifications/{notificationId}:
+    patch:
+      tags: [Notifications]
+      summary: Mark a notification read
+      parameters:
+        - { name: notificationId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Notification updated }
+  /audit-logs:
+    get:
+      tags: [Audit]
+      summary: List workspace audit events
+      responses:
+        '200': { description: Audit events returned }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+    FeedbackId:
+      name: feedbackId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    SignupRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        workspace: { type: string, minLength: 2, maxLength: 100 }
+        inviteToken: { type: string }
+    FeedbackCreate:
+      type: object
+      required: [content, channel]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 20000 }
+        channel: { type: string, minLength: 1, maxLength: 80 }
+        customerLabel: { type: string, maxLength: 160 }
+        sourceType: { type: string, enum: [MANUAL, CSV, SIMULATED, API, WEBHOOK] }
+        externalId: { type: string, maxLength: 200 }
+    FeedbackPatch:
+      allOf:
+        - $ref: '#/components/schemas/FeedbackCreate'
+        - type: object
+          properties:
+            status: { $ref: '#/components/schemas/FeedbackStatus' }
+    FeedbackStatus:
+      type: string
+      enum: [NEW, REVIEWED, ACTIONED]
+    Sentiment:
+      type: string
+      enum: [POS, NEU, NEG]
+    ThemeCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+        color: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+    Error:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        requestId: { type: string }
+    Problem:
+      type: object
+      properties:
+        error: { $ref: '#/components/schemas/Error' }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content: { application/json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Unauthorized:
+      description: Authentication required
+    Forbidden:
+      description: Insufficient permission or cross-tenant access
+    NotFound:
+      description: Resource not found
+    Conflict:
+      description: State or uniqueness conflict

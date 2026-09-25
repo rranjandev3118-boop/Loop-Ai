@@ -1,0 +1,144 @@
+Attached Element Context from Integrated Browser
+
+Element: main.login-page.relative.grid.min-h-screen.place-items-center.overflow-hidden.px-5.py-10
+
+URL: http://localhost:3000/login
+
+HTML Path: main.login-page.relative.grid.min-h-screen.place-items-center.overflow-hidden.px-5.py-10
+
+Outer HTML:
+```html
+<main class="login-page relative grid min-h-screen place-items-center overflow-hidden px-5 py-10"><div class="login-particles" aria-hidden="true"></div><div class="login-orbit login-orbit-one" aria-hidden="true"></div><div class="login-orbit login-orbit-two" aria-hidden="true"></div><div class="login-shell grid w-full max-w-5xl overflow-hidden rounded-[30px] md:grid-cols-[1.05fr_0.95fr]"><div class="login-visual relative hidden p-8 md:flex md:flex-col md:justify-between md:text-white"><div class="login-visual-grid" aria-hidden="true"></div><div><a class="relative z-10 inline-flex items-center gap-3 text-2xl font-semibold tracking-[0.24em] text-white" href="/"><span class="login-mark">L</span> LOOP</a><div class="login-visual-copy relative z-10 mt-16"><div class="text-[10px] uppercase tracking-[0.26em] text-violet-200">Secure access</div><h1 class="mt-4 text-4xl font-semibold tracking-tight">Your customer signal, in focus.</h1><p class="mt-4 text-sm leading-6 text-slate-300">Every role is verified server-side before it can affect customer data, analytics, or administrative controls.</p></div></div><div class="relative z-10 grid gap-3"><div class="login-role-card rounded-2xl border p-3 bg-violet-500/10 text-violet-700 border-violet-200"><div class="flex items-center justify-between"><div class="font-semibold">Admin Access</div><div class="text-[10px] uppercase tracking-[0.18em]">ADMIN</div></div><div class="mt-1 text-xs opacity-80">Full workspace control</div></div><div class="login-role-card rounded-2xl border p-3 bg-sky-500/10 text-sky-700 border-sky-200"><div class="flex items-center justify-between"><div class="font-semibold">Analyst Access</div><div class="text-[10px] uppercase tracking-[0.18em]">ANALYST</div></div><div class="mt-1 text-xs opacity-80">Feedback &amp; analysis</div></div><div class="login-role-card rounded-2xl border p-3 bg-emerald-500/10 text-emerald-700 border-emerald-200"><div class="flex items-center justify-between"><div class="font-semibold">Viewer Access</div><div class="text-[10px] uppercase tracking-[0.18em]">VIEWER</div></div><div class="mt-1 text-xs opacity-80">Read-only insights</div></div></div></div><div class="login-form-panel p-6 md:p-10"><div class="mb-6 flex items-center justify-between"><div><div class="text-[10px] font-semibold uppercase tracking-[0.28em] text-violet-600">Welcome back</div><h2 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Enter your workspace</h2><p class="mt-2 text-sm text-slate-500">Choose your access level to continue.</p></div><div class="rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] bg-violet-500/10 text-violet-700 border-violet-200">ADMIN</div></div><div class="grid gap-3 md:grid-cols-3"><button type="button" class="login-role-select rounded-2xl border px-3 py-3 text-left transition border-violet-400 bg-violet-50 shadow-sm"><div class="text-sm font-semibold text-slate-800">Admin Access</div><div class="mt-1 text-xs text-slate-500">Full workspace control</div></button><button type="button" class="login-role-select rounded-2xl border px-3 py-3 text-left transition border-slate-200 bg-slate-50 hover:border-slate-300"><div class="text-sm font-semibold text-slate-800">Analyst Access</div><div class="mt-1 text-xs text-slate-500">Feedback &amp; analysis</div></button><button type="button" class="login-role-select rounded-2xl border px-3 py-3 text-left transition border-slate-200 bg-slate-50 hover:border-slate-300"><div class="text-sm font-semibold text-slate-800">Viewer Access</div><div class="mt-1 text-xs text-slate-500">Read-only insights</div></button></div><form class="mt-7 space-y-4"><label class="block text-sm font-medium text-slate-700">Email<input class="input mt-1" autocomplete="email" value="admin@loop.demo"></label><label class="block text-sm font-medium text-slate-700">Password<div class="relative mt-1"><input class="input pr-11" autocomplete="current-password" type="password" value="LoopDemo123!"><button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye h-4 w-4"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg></button></div></label><div class="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-700"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-check h-4 w-4"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Backend verifies your workspace role before access is granted.</div><button type="submit" class="login-submit btn btn-primary w-full">Continue as ADMIN</button></form><div class="mt-6 flex items-center justify-between text-xs text-slate-500"><span>Demo: admin@loop.demo / LoopDemo123!</span><a class="font-medium text-violet-600 hover:text-violet-500" href="/signup">Create workspace</a></div></div></div></main>
+```
+
+Dimensions:
+- top: 0px
+- left: 0px
+- width: 556px
+- height: 801px
+
+CSS:
+```css
+*, ::before, ::after { --tw-border-spacing-x: 0;
+  --tw-border-spacing-y: 0;
+  --tw-translate-x: 0;
+  --tw-translate-y: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  --tw-pan-x:  ;
+  --tw-pan-y:  ;
+  --tw-pinch-zoom:  ;
+  --tw-scroll-snap-strictness: proximity;
+  --tw-gradient-from-position:  ;
+  --tw-gradient-via-position:  ;
+  --tw-gradient-to-position:  ;
+  --tw-ordinal:  ;
+  --tw-slashed-zero:  ;
+  --tw-numeric-figure:  ;
+  --tw-numeric-spacing:  ;
+  --tw-numeric-fraction:  ;
+  --tw-ring-inset:  ;
+  --tw-ring-offset-width: 0px;
+  --tw-ring-offset-color: #fff;
+  --tw-ring-color: rgb(59 130 246 / 0.5);
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  --tw-blur:  ;
+  --tw-brightness:  ;
+  --tw-contrast:  ;
+  --tw-grayscale:  ;
+  --tw-hue-rotate:  ;
+  --tw-invert:  ;
+  --tw-saturate:  ;
+  --tw-sepia:  ;
+  --tw-drop-shadow:  ;
+  --tw-backdrop-blur:  ;
+  --tw-backdrop-brightness:  ;
+  --tw-backdrop-contrast:  ;
+  --tw-backdrop-grayscale:  ;
+  --tw-backdrop-hue-rotate:  ;
+  --tw-backdrop-invert:  ;
+  --tw-backdrop-opacity:  ;
+  --tw-backdrop-saturate:  ;
+  --tw-backdrop-sepia:  ;
+  --tw-contain-size:  ;
+  --tw-contain-layout:  ;
+  --tw-contain-paint:  ;
+  --tw-contain-style:  ; }
+*, ::before, ::after { box-sizing: border-box; /* 1 */
+  border-width: 0; /* 2 */
+  border-style: solid; /* 2 */
+  border-color: #e5e7eb; /* 2 */ }
+* { box-sizing:border-box; }
+.relative { position: relative; }
+.grid { display: grid; }
+.min-h-screen { min-height: 100vh; }
+.place-items-center { place-items: center; }
+.overflow-hidden { overflow: hidden; }
+.px-5 { padding-left: 1.25rem;
+  padding-right: 1.25rem; }
+.py-10 { padding-top: 2.5rem;
+  padding-bottom: 2.5rem; }
+.login-page { isolation: isolate;
+  background: radial-gradient(circle at 72% 35%, rgba(99,102,241,.2), transparent 28rem), linear-gradient(135deg, #f8fbff, #eef2ff 52%, #f8fafc); }
+
+/* Pseudo-elements */
+::before, ::after { --tw-content: ''; }
+::selection { background: rgba(99, 102, 241, 0.2);
+  color: #312e81; }
+::-webkit-scrollbar { width: 8px;
+  height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line);
+  border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+::-webkit-scrollbar-track { background: var(--bg); }
+
+/* Inherited */
+body { color: var(--text); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: -0.005em }
+.text-slate-900 { color: rgb(15 23 42 / var(--tw-text-opacity, 1)) }
+html, :host { line-height: 1.5; tab-size: 4 }
+
+/* Resolved values */
+padding: 40px 20px;
+border-radius: 0px;
+border: 0px solid rgb(229, 231, 235);
+align-items: center;
+background-attachment: scroll, scroll;
+background-clip: border-box, border-box;
+background-color: rgba(0, 0, 0, 0);
+background-image: radial-gradient(circle at 72% 35%, rgba(99, 102, 241, 0.2), rgba(0, 0, 0, 0) 448px), linear-gradient(135deg, rgb(248, 251, 255), rgb(238, 242, 255) 52%, rgb(248, 250, 252));
+background-origin: padding-box, padding-box;
+background-position-x: 0%, 0%;
+background-position-y: 0%, 0%;
+background-repeat: repeat, repeat;
+background-size: auto, auto;
+box-sizing: border-box;
+color: rgb(15, 23, 42);
+display: grid;
+font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+font-feature-settings: normal;
+height: 800.8px;
+isolation: isolate;
+justify-items: center;
+letter-spacing: -0.08px;
+line-height: 24px;
+min-height: 707.2px;
+overflow-x: hidden;
+overflow-y: hidden;
+position: relative;
+tab-size: 4;
+unicode-bidi: isolate /*UA*/;
+width: 556px;
+
+/* CSS variables */
+--line: #e2e8f0;
+--tw-text-opacity: 1;
+--bg: #f5f7fb;
+--muted: #64748b;
+--text: #0f172a;
+```

@@ -1,0 +1,628 @@
+PROJECT LOOP - PRODUCTION DEPLOYMENT RUNBOOK
+============================================
+
+Purpose
+-------
+Use this file as the complete checklist for deploying LOOP to production.
+Perform the steps in order. Do not skip database setup, environment variables,
+migrations, or smoke testing.
+
+Current project status
+----------------------
+The application code has passed:
+
+  npm run build
+  npm test
+  npx tsc --noEmit
+
+Production is not complete until the infrastructure steps in this file pass.
+
+Recommended services
+--------------------
+  Database:  Neon PostgreSQL (or another PostgreSQL provider with pgvector)
+  Hosting:   Vercel
+  AI:        Anthropic Claude
+  Email:     Resend or the email provider used by this project
+  Source:    GitHub
+
+Important security rules
+------------------------
+1. Never commit .env, .env.local, .env.production, database URLs, API keys,
+   NEXTAUTH_SECRET, or email provider secrets.
+2. Never paste secrets into chat, tickets, screenshots, or public repositories.
+3. Use a separate production database. Do not use the local development database.
+4. Use separate Preview and Production databases if possible.
+5. Do not run "prisma migrate dev" against production.
+6. Do not run "prisma db push" against production unless you have reviewed the
+   data-loss implications and explicitly intend to use it.
+7. Use HTTPS in production.
+
+
+PHASE 0 - CHECK THE LOCAL PROJECT
+=================================
+
+0.1 Open PowerShell in the project directory
+
+  cd "D:\zidio assessment\Loop-Ai-Project-main"
+
+0.2 Confirm Node and npm are available
+
+  node --version
+  npm --version
+
+Use a supported current LTS Node.js version. If Vercel and local Node versions
+differ, use the same major version for both.
+
+0.3 Install dependencies
+
+  npm install
+
+0.4 Confirm secrets are not tracked
+
+  Get-ChildItem -Force
+  git status --short
+
+If an environment file contains secrets, ensure it is ignored:
+
+  .env
+  .env.local
+  .env.production
+
+Check .gitignore before pushing code.
+
+0.5 Run local validation
+
+  npm run build
+  npm test
+  npx tsc --noEmit
+
+All commands must finish successfully before continuing.
+
+
+PHASE 1 - CREATE THE PRODUCTION DATABASE
+=========================================
+
+1.1 Create a managed PostgreSQL database
+
+Recommended:
+
+  1. Visit https://neon.tech
+  2. Create an account.
+  3. Create a new project named "loop-production".
+  4. Select a region close to your users.
+  5. Create or use a database named "loop".
+
+You may use Supabase, Railway, Render, or another provider if it supports
+PostgreSQL and pgvector.
+
+1.2 Copy the production connection string
+
+It normally resembles:
+
+  postgresql://USER:PASSWORD:HOST/DATABASE?sslmode=require
+
+The exact format depends on the provider. Store it in a password manager.
+Do not commit it or expose it publicly.
+
+1.3 Enable pgvector
+
+Open the provider SQL editor and execute:
+
+  CREATE EXTENSION IF NOT EXISTS vector;
+
+Verify it:
+
+  SELECT extname FROM pg_extension WHERE extname = 'vector';
+
+Expected result:
+
+  vector
+
+If the command fails, choose a database plan/provider that supports pgvector.
+Do not continue until this succeeds.
+
+
+PHASE 2 - APPLY PRISMA MIGRATIONS
+=================================
+
+2.1 Temporarily set the production database URL locally
+
+PowerShell:
+
+  $env:DATABASE_URL="PASTE_PRODUCTION_DATABASE_URL_HERE"
+
+Replace the placeholder with the real URL. This value only applies to the
+current PowerShell process.
+
+2.2 Check migration status
+
+  npx prisma migrate status
+
+2.3 Apply migrations
+
+If migrations exist and the status is valid:
+
+  npx prisma migrate deploy
+
+Expected result:
+
+  All migrations have been successfully applied.
+
+2.4 Verify Prisma client generation
+
+  npm run db:generate
+
+2.5 If no migration files exist
+
+Stop and inspect the prisma/migrations directory:
+
+  Get-ChildItem ".\prisma\migrations"
+
+Do not guess or run destructive production commands. Create and review a
+migration against a development database first, then apply it to production.
+
+2.6 Optional database verification
+
+Use Prisma Studio only if you understand that it connects to the database URL
+currently set in the shell:
+
+  npx prisma studio
+
+Confirm that the expected tables exist:
+
+  Workspace
+  User
+  WorkspaceMember
+  Feedback
+  Theme
+  Report
+  ReportExport
+  AuditLog
+
+
+PHASE 3 - PREPARE SECRETS AND THIRD-PARTY SERVICES
+==================================================
+
+3.1 Generate NEXTAUTH_SECRET
+
+Run this in PowerShell:
+
+  [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
+
+Copy the generated value to a password manager. Use a different secret from
+local development.
+
+3.2 Create an Anthropic API key
+
+1. Create or open your Anthropic account.
+2. Create an API key.
+3. Set a usage limit/budget if available.
+4. Keep the key private.
+
+3.3 Configure email delivery
+
+Signup OTP and workspace invitations require the email provider configured by
+the project. Inspect the exact environment variable names used by the code:
+
+  Select-String -Path ".\lib\email.ts",".\lib\otp.ts" -Pattern "process.env" -Context 0,1
+
+Typical values include:
+
+  RESEND_API_KEY
+  EMAIL_FROM
+
+If the provider requires a verified domain, add the domain and configure all
+SPF, DKIM, and DMARC records requested by that provider.
+
+3.4 Verify the sender domain
+
+Do not use an unverified sender in production. Confirm that the sender address
+matches the verified email domain.
+
+
+PHASE 4 - PUSH THE CODE TO GITHUB
+==================================
+
+4.1 Confirm the repository state
+
+  git status --short
+  git log --oneline -5
+
+4.2 If the project is already connected to GitHub
+
+Push the current production-ready branch using your normal workflow.
+
+4.3 If this folder is not yet a Git repository
+
+Create a PRIVATE GitHub repository first, then run:
+
+  cd "D:\zidio assessment\Loop-Ai-Project-main"
+  git init
+  git add .
+  git commit -m "Prepare LOOP for production deployment"
+  git branch -M main
+  git remote add origin https://github.com/YOUR_USERNAME/loop-ai.git
+  git push -u origin main
+
+Replace YOUR_USERNAME and the repository name.
+
+4.4 Before git add
+
+Confirm that no secrets are included:
+
+  git status --short
+  git diff --cached --name-only
+
+If an environment file appears, stop, remove it from staging, and update
+.gitignore. Never push it.
+
+
+PHASE 5 - CREATE THE VERCEL PROJECT
+===================================
+
+5.1 Create the project
+
+1. Visit https://vercel.com
+2. Sign in with GitHub.
+3. Select "Add New" and then "Project".
+4. Import the LOOP GitHub repository.
+5. Confirm the project root is the folder containing package.json and prisma.
+
+5.2 Use these build settings
+
+  Framework preset: Next.js
+  Install command:  npm install
+  Build command:    npm run build
+  Output directory: .next
+
+Vercel normally detects the framework and settings automatically.
+
+5.3 Do the first deployment
+
+The first deployment may fail because environment variables are not configured.
+That is expected. Continue to Phase 6, add variables, and redeploy.
+
+
+PHASE 6 - ADD VERCEL ENVIRONMENT VARIABLES
+==========================================
+
+In Vercel:
+
+  Project
+    -> Settings
+      -> Environment Variables
+
+Add each variable separately. Select Production and Preview. Select
+Development only if you want Vercel development commands to use those values.
+
+6.1 Required variables
+
+DATABASE_URL
+  Value: the production PostgreSQL connection string
+
+NEXTAUTH_SECRET
+  Value: the generated long random secret
+
+NEXTAUTH_URL
+  Initial value: https://YOUR_PROJECT_NAME.vercel.app
+
+Replace YOUR_PROJECT_NAME with the URL shown by Vercel.
+
+6.2 AI variables
+
+ANTHROPIC_API_KEY
+  Value: your Anthropic API key
+
+ANTHROPIC_MODEL
+  Value: claude-sonnet-4-6
+
+6.3 Email variables
+
+Add the exact names found in lib/email.ts and lib/otp.ts. Common examples:
+
+RESEND_API_KEY
+  Value: your Resend API key
+
+EMAIL_FROM
+  Value: LOOP <noreply@your-verified-domain.com>
+
+6.4 Environment variable rules
+
+Do not name secrets with NEXT_PUBLIC_. Variables with NEXT_PUBLIC_ can be sent
+to the browser.
+
+Do not put quotes around values unless the quotes are intentionally part of the
+value.
+
+Do not paste trailing spaces or line breaks into values.
+
+
+PHASE 7 - REDEPLOY AFTER CONFIGURATION
+======================================
+
+After saving variables:
+
+1. Open Vercel -> Deployments.
+2. Select the latest deployment.
+3. Open the three-dot menu.
+4. Select Redeploy.
+5. Confirm the Production environment.
+6. Wait until the deployment status is "Ready".
+
+If the build fails, open the deployment build logs and fix the first error
+listed before retrying.
+
+
+PHASE 8 - VERIFY THE VERCEL URL
+===============================
+
+Open:
+
+  https://YOUR_PROJECT_NAME.vercel.app
+
+Check:
+
+  /
+  /signup
+  /login
+  /dashboard
+  /inbox
+  /reports
+  /settings
+  /trends
+  /ask
+
+If available, check:
+
+  https://YOUR_PROJECT_NAME.vercel.app/api/health
+
+The site must load without a database initialization error, authentication
+configuration error, or missing asset error.
+
+
+PHASE 9 - LIVE SMOKE TESTING
+============================
+
+Use test email accounts and test data first. Do not start with real customer
+data.
+
+9.1 Signup and OTP
+
+1. Open /signup.
+2. Enter name, email, strong password, and workspace name.
+3. Submit.
+4. Confirm the OTP email arrives.
+5. Enter the OTP.
+6. Confirm the user reaches the application.
+7. Confirm the new user has ADMIN access.
+8. Confirm the workspace exists.
+
+9.2 Login
+
+1. Log out.
+2. Log back in.
+3. Confirm the dashboard loads.
+4. Confirm the correct workspace is shown.
+
+9.3 Feedback
+
+1. Open Inbox.
+2. Add manual feedback.
+3. Confirm the feedback appears.
+4. Confirm classification completes or a safe fallback is shown.
+5. Click Re-classify.
+6. Change status from NEW to REVIEWED.
+7. Change status from REVIEWED to ACTIONED.
+8. Import a small CSV and verify the result.
+
+9.4 Reports
+
+1. Open Reports.
+2. Generate a weekly report.
+3. Generate a monthly report.
+4. Confirm the report appears in the list.
+5. Confirm summary, themes, sentiment, quotes, and actions display.
+6. Click Export PDF.
+7. Confirm a PDF downloads.
+8. Confirm the filename is:
+
+     voc-report-REPORT_ID.pdf
+
+9.5 Workspace invitations
+
+1. Open Settings as ADMIN.
+2. Invite a second test email.
+3. Confirm the invitation email arrives.
+4. Open the invitation link.
+5. Complete the invited user signup.
+6. Confirm the invited user belongs to the original workspace.
+
+9.6 Role permissions
+
+Create/test one ADMIN, one ANALYST, and one VIEWER.
+
+Expected behavior:
+
+  Action                         ADMIN       ANALYST     VIEWER
+  ----------------------------------------------------------------
+  View dashboard                Allowed     Allowed     Allowed
+  View feedback                 Allowed     Allowed     Allowed
+  Add feedback                 Allowed     Allowed     Denied
+  Re-classify feedback         Allowed     Allowed     Denied
+  Generate reports             Allowed     Allowed     Denied
+  Export reports               Allowed     Allowed     Allowed
+  Invite members               Allowed     Denied      Denied
+  Change member roles          Allowed     Denied      Denied
+  Remove members               Allowed     Denied      Denied
+
+9.7 Tenant isolation
+
+1. Create Workspace A and Workspace B.
+2. Create users in both workspaces.
+3. As Workspace A, try to access a Workspace B report ID.
+4. Try to access, update, or delete a Workspace B feedback ID.
+5. Confirm the request returns 403 or 404.
+6. Confirm no Workspace B data appears in Workspace A responses.
+
+
+PHASE 10 - CONFIGURE A CUSTOM DOMAIN
+====================================
+
+The Vercel URL is sufficient for initial testing. Configure a custom domain
+after the Vercel URL smoke tests pass.
+
+10.1 Add the domain in Vercel
+
+1. Open Vercel -> Project -> Settings -> Domains.
+2. Enter your domain, for example:
+
+     app.example.com
+
+3. Copy the exact DNS records Vercel displays.
+
+10.2 Add DNS records at your registrar
+
+For a subdomain, Vercel commonly requests a CNAME similar to:
+
+  Type:  CNAME
+  Name:  app
+  Value: cname.vercel-dns.com
+
+For an apex/root domain, Vercel may request A records.
+
+Use the exact values displayed by Vercel. Do not rely on old examples.
+
+10.3 Wait for verification
+
+Wait until Vercel reports:
+
+  Domain verified
+  SSL certificate active
+
+10.4 Update NEXTAUTH_URL
+
+Change the Vercel variable to:
+
+  NEXTAUTH_URL=https://YOUR_REAL_DOMAIN.com
+
+Redeploy after changing it.
+
+10.5 Update email sender configuration
+
+If using email, use a sender address on the verified custom domain and update
+EMAIL_FROM if required. Redeploy again.
+
+
+PHASE 11 - REVIEW PRODUCTION LOGS
+=================================
+
+After smoke testing, inspect:
+
+  Vercel -> Project -> Deployments -> Production deployment -> Functions/Logs
+
+Common errors:
+
+  PrismaClientInitializationError
+    Check DATABASE_URL, database availability, SSL mode, and migrations.
+
+  NEXTAUTH_SECRET missing or invalid
+    Check NEXTAUTH_SECRET and redeploy.
+
+  NEXTAUTH_URL error
+    Check that it exactly matches the live HTTPS URL.
+
+  Anthropic API error
+    Check ANTHROPIC_API_KEY, account credits, model name, and rate limits.
+
+  Email not configured or delivery failed
+    Check Resend/API key, sender domain verification, and EMAIL_FROM.
+
+Never copy full secret values into logs or support requests.
+
+
+PHASE 12 - BACKUP, MONITORING, AND ROLLBACK
+============================================
+
+12.1 Database backup
+
+Enable automated backups/point-in-time recovery in your database provider.
+Verify the retention period and document how to restore a backup.
+
+12.2 Vercel rollback
+
+If a deployment is broken:
+
+1. Open Vercel -> Deployments.
+2. Find the last known-good deployment.
+3. Use the deployment menu.
+4. Promote/rollback to that deployment.
+5. Investigate the failed deployment before redeploying.
+
+12.3 Database migration safety
+
+Before future migrations:
+
+1. Back up production.
+2. Apply the migration to a staging database.
+3. Run the smoke tests.
+4. Review the migration SQL.
+5. Apply with:
+
+     npx prisma migrate deploy
+
+6. Verify application health.
+
+
+FINAL PRODUCTION SIGN-OFF
+=========================
+
+Mark the project production-complete only when every item below is true:
+
+  [ ] Production PostgreSQL database created
+  [ ] pgvector extension enabled
+  [ ] Prisma migrations applied
+  [ ] Database backup/recovery configured
+  [ ] DATABASE_URL added to Vercel
+  [ ] NEXTAUTH_SECRET added to Vercel
+  [ ] NEXTAUTH_URL added to Vercel
+  [ ] ANTHROPIC_API_KEY added if AI is required
+  [ ] Email variables added if OTP/invitations are required
+  [ ] Email sender domain verified
+  [ ] GitHub repository contains no secrets
+  [ ] Vercel deployment status is Ready
+  [ ] Vercel URL opens successfully
+  [ ] Signup and OTP tested
+  [ ] Login tested
+  [ ] ADMIN permissions tested
+  [ ] ANALYST permissions tested
+  [ ] VIEWER permissions tested
+  [ ] Feedback creation tested
+  [ ] Feedback classification tested
+  [ ] CSV import tested
+  [ ] Report generation tested
+  [ ] PDF export tested
+  [ ] Member invitation tested
+  [ ] Tenant isolation tested
+  [ ] Custom domain verified, if required
+  [ ] HTTPS certificate active
+  [ ] Production logs reviewed
+  [ ] Rollback procedure understood
+
+Definition of done
+------------------
+
+The deployment is production-ready when:
+
+  npm run build              passes locally and on Vercel
+  npm test                   passes
+  npx tsc --noEmit           passes
+  Database                   is reachable and migrated
+  pgvector                   is enabled
+  Environment variables      are configured
+  Domain and HTTPS           are active, if using a custom domain
+  Live smoke tests           pass
+  Tenant isolation           passes
+  Backups and rollback       are available
+
+If any item above is not complete, the project is code-ready but not fully
+production-verified.

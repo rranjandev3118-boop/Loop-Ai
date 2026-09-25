@@ -1,0 +1,58 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "DATABASE_URL": {
+      "description": "PostgreSQL database connection string with pgvector support",
+      "required": true
+    },
+    "NEXTAUTH_SECRET": {
+      "description": "Secret key for NextAuth.js session encryption (min 32 characters)",
+      "required": true,
+      "generator": "secret"
+    },
+    "NEXTAUTH_URL": {
+      "description": "Canonical URL of your Next.js application",
+      "required": true,
+      "value": "https://your-domain.com"
+    },
+    "ANTHROPIC_API_KEY": {
+      "description": "Anthropic Claude API key for AI features",
+      "required": true
+    },
+    "ANTHROPIC_MODEL": {
+      "description": "Anthropic Claude model to use",
+      "required": false,
+      "value": "claude-sonnet-4-6"
+    },
+    "CRON_SECRET": {
+      "description": "Secret key for cron job authentication (min 32 characters)",
+      "required": true,
+      "generator": "secret"
+    },
+    "RESEND_API_KEY": {
+      "description": "Resend API key for email sending",
+      "required": false
+    },
+    "RESEND_FROM_EMAIL": {
+      "description": "Sender email address for transactional emails",
+      "required": false,
+      "value": "LOOP <no-reply@your-domain.com>"
+    },
+    "NODE_ENV": {
+      "description": "Node.js environment",
+      "required": false,
+      "value": "production"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/jobs/process",
+      "schedule": "*/5 * * * *",
+      "description": "Process background classification jobs every 5 minutes"
+    }
+  ]
+}
