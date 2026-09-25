@@ -2,17 +2,9 @@
   "crons": [
     {
       "path": "/api/jobs/process",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 0 * * *"
     }
   ],
-  "build": {
-    "env": {
-      "NEXTAUTH_URL": {
-        "description": "The canonical URL of your Next.js app",
-        "value": "https://your-domain.com"
-      }
-    }
-  },
   "headers": [
     {
       "source": "/(.*)",
